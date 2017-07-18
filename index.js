@@ -13,7 +13,7 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 const bot = new TelegramBot( token, { polling: true } );
 
 const blogsToPoll = {};
-const POLL_INTERVAL = 5 * 60 * 1000;
+const POLL_INTERVAL = 5 * 1000;
 
 ( function blogWatcher() {
 	const now = Date.now();
@@ -29,35 +29,56 @@ const POLL_INTERVAL = 5 * 60 * 1000;
 			return;
 		}
 	}
+	setTimeout( blogWatcher, 1000 );
 } )();
 
-function pollBlog( chatId, feedUrl ) {
+( function watchExistingBlogs() {
+	db.getAllBlogs().then( blogs => {
+		blogs.forEach( blog => pollBlog( blog.chatId, blog.feedUrl, 0 ) )
+	} );
+} )();
+
+function pollBlog( chatId, feedUrl, lastCheck = Date.now() ) {
 	blogsToPoll[ chatId ] = {
 		chatId,
 		feedUrl,
-		lastCheck: 0,
+		lastCheck,
 	};
 }
 
 function updateChannel( chatId, rssItems, meta ) {
-	// TODO: search for items that have not been shared yet
-	if ( rssItems.length > 0 ) {
-		bot.sendMessage( chatId, rssItems[0].link );
-	}
+	const rssLinks = rssItems.map( rssItem => rssItem.link );
+	console.log( 'rssLinks', rssLinks );
+	return db.getSharedLinksOnChat( chatId ).then( links => {
+		const newLinks = rssLinks.filter( link => links.indexOf( link ) === -1 );
+		console.log( 'newLinks', newLinks );
+		if ( newLinks.length > 0 ) {
+			return db.addSharedLinksOnChat( chatId, newLinks ).then( () => {
+				newLinks.forEach( link => bot.sendMessage( chatId, rssItems[0].link ) );
+			} );
+		}
+	} );
 }
 
 function followBlog( chatId, chatType, blogUrl ) {
 	const feedUrl = getFeedUrl( blogUrl );
 
-	// check that the feed url is accessible
-	getFeed( feedUrl, ( error, items, meta ) => {
-		if ( error ) return;
+	return new Promise( ( resolve, reject ) => {
+		// check that the feed url is accessible
+		getFeed( feedUrl, ( error, items, meta ) => {
+			if ( error ) {
+				// TODO: send a message to inform the user that the url is not accessible
+				return reject( error );
+			}
 
-		updateChannel( chatId, items, meta );
-
-		db.followBlog( chatId, chatType, feedUrl );
-
-		pollBlog( chatId, feedUrl );
+			db.followBlog( chatId, chatType, feedUrl ).then( () => {
+				updateChannel( chatId, items, meta );
+				pollBlog( chatId, feedUrl );
+				return resolve();
+			} ).catch( () => {
+				// TODO: we're probably already following this blog, inform the user
+			} )
+		} );
 	} );
 }
 
@@ -102,7 +123,6 @@ function getUrlFromMsgText( msgText ) {
 }
 
 bot.on( 'message', msg => {
-
 	if ( msg.chat.type !== 'group' ) {
 		return;
 	}
@@ -140,8 +160,8 @@ bot.on( 'channel_post', ( msg ) => {
 	debug( 'Following ' + url );
 
 	// only admins can post to channel
-	followBlog( msg.chat.id, 'channel', url );
-	bot.sendMessage( msg.chat.id, 'Following!' );
-
+	followBlog( msg.chat.id, 'channel', url ).then( () => {
+		bot.sendMessage( msg.chat.id, 'Following!' );
+	} );
 } );
 
