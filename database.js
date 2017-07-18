@@ -10,17 +10,15 @@ dbP.then( db => {
 	debug( 'Connected to ' + DB_URL );
 	const blogChats = db.collection( 'blogChats' );
 
-	blogChats.ensureIndex( { chatId: 1 }, { unique: true } );
-	blogChats.ensureIndex( { chatType: 1 } );
-	blogChats.ensureIndex( { feedUrl: 1 } );
+	blogChats.ensureIndex( { chatId: 1, feedUrl: 1 }, { unique: true } );
 } );
 
-function followBlog( chatId, chatType, feedUrl ) {
+function followBlog( chatId, feedUrl, chatType ) {
 	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, feedUrl, createdDate: new Date(), links: [] } ) );
 }
 
-function unfollowBlog( chatId ) {
-	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId }, { justOne: true } ) );
+function unfollowBlog( chatId, feedUrl ) {
+	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId, feedUrl }, { justOne: true } ) );
 }
 
 function getChatsByFeed( feedUrl ) {
@@ -31,16 +29,16 @@ function getAllBlogs() {
 	return dbP.then( db => db.collection( 'blogChats' ).find( {} ).toArray() );
 }
 
-function getSharedLinksOnChat( chatId ) {
+function getBlogSharedLinksOnChat( chatId, feedUrl ) {
 	return dbP.then( db => (
-		db.collection( 'blogChats' ).findOne( { chatId } ).then( chat => {
+		db.collection( 'blogChats' ).findOne( { chatId, feedUrl } ).then( chat => {
 			return Promise.resolve( chat.links || [] );
 		} )
 	) );
 }
 
-function addSharedLinksOnChat( chatId, links ) {
-	return dbP.then( db => { db.collection( 'blogChats' ).update( { chatId }, { $pushAll: { links } } ) } );
+function addBlogSharedLinksOnChat( chatId, feedUrl, links ) {
+	return dbP.then( db => { db.collection( 'blogChats' ).update( { chatId, feedUrl }, { $pushAll: { links } } ) } );
 }
 
 module.exports = {
@@ -48,7 +46,7 @@ module.exports = {
 	unfollowBlog,
 	getChatsByFeed,
 	getAllBlogs,
-	getSharedLinksOnChat,
-	addSharedLinksOnChat,
+	getBlogSharedLinksOnChat,
+	addBlogSharedLinksOnChat,
 };
 

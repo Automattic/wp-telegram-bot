@@ -12,17 +12,17 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
 
-const blogsToPoll = {};
+const blogsToPoll = [];
 const POLL_INTERVAL = 5 * 1000;
 
 ( function blogWatcher() {
 	const now = Date.now();
-	for ( let blogId in blogsToPoll ) {
-		let blog = blogsToPoll[ blogId ];
+	for ( let i = 0; i < blogsToPoll.length; i++ ) {
+		let blog = blogsToPoll[ i ];
 		if ( now - blog.lastCheck > POLL_INTERVAL ) {
 			getFeed( blog.feedUrl, ( error, items, meta ) => {
 				if ( error ) return;
-				updateChannel( blog.chatId, items, meta );
+				updateChannel( blog.chatId, blog.feedUrl, items, meta );
 			} );
 			blog.lastCheck = now;
 			setTimeout( blogWatcher, 100 );
@@ -34,26 +34,26 @@ const POLL_INTERVAL = 5 * 1000;
 
 ( function watchExistingBlogs() {
 	db.getAllBlogs().then( blogs => {
-		blogs.forEach( blog => pollBlog( blog.chatId, blog.feedUrl, 0 ) )
+		Array.prototype.push.apply( blogsToPoll, blogs || [] );
 	} );
 } )();
 
 function pollBlog( chatId, feedUrl, lastCheck = Date.now() ) {
-	blogsToPoll[ chatId ] = {
+	blogsToPoll.push( {
 		chatId,
 		feedUrl,
 		lastCheck,
-	};
+	} );
 }
 
-function updateChannel( chatId, rssItems, meta ) {
+function updateChannel( chatId, feedUrl, rssItems, meta ) {
 	const rssLinks = rssItems.map( rssItem => rssItem.link );
 	console.log( 'rssLinks', rssLinks );
-	return db.getSharedLinksOnChat( chatId ).then( links => {
+	return db.getBlogSharedLinksOnChat( chatId, feedUrl ).then( links => {
 		const newLinks = rssLinks.filter( link => links.indexOf( link ) === -1 );
 		console.log( 'newLinks', newLinks );
 		if ( newLinks.length > 0 ) {
-			return db.addSharedLinksOnChat( chatId, newLinks ).then( () => {
+			return db.addBlogSharedLinksOnChat( chatId, feedUrl, newLinks ).then( () => {
 				newLinks.forEach( link => bot.sendMessage( chatId, rssItems[0].link ) );
 			} );
 		}
@@ -71,8 +71,8 @@ function followBlog( chatId, chatType, blogUrl ) {
 				return reject( error );
 			}
 
-			db.followBlog( chatId, chatType, feedUrl ).then( () => {
-				updateChannel( chatId, items, meta );
+			db.followBlog( chatId, feedUrl, chatType ).then( () => {
+				updateChannel( chatId, feedUrl, items, meta );
 				pollBlog( chatId, feedUrl );
 				return resolve();
 			} ).catch( () => {
