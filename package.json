@@ -4,6 +4,7 @@
   "description": "A telegram bot for WordPress.com",
   "main": "index.js",
   "dependencies": {
+    "@xmpp/plugins": "^0.2.0",
     "debug": "^2.6.8",
     "feedparser": "^2.2.1",
     "mongodb": "^2.2.30",
