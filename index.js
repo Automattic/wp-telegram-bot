@@ -5,6 +5,7 @@ const request = require( 'request' );
 const debug = require( 'debug' )( 'wp-telegram-bot' );
 const db = require( './database' );
 
+require( 'dotenv' ).load();
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = process.env.BOT_TOKEN;
