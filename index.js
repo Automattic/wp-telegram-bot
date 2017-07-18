@@ -23,7 +23,7 @@ function followBlog( chatId, chatType, blogUrl ) {
 			if ( err ) return;
 			if ( items && items.length > 0 ) {
 				const firstItem = items[0];
-				bot.sendMessage( chatId, firstItem.title + ' ' + firstItem.summary );
+				bot.sendMessage( chatId, firstItem.link );
 			}
 		} );
 	} catch ( exception ) {
