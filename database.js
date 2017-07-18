@@ -3,7 +3,7 @@ const MongoClient = mongodb.MongoClient;
 const debug = require( 'debug' )( 'wp-telegram-bot:database' );
 
 
-const DB_URL = require( './secrets.json' ).DB_URL || 'mongodb://127.0.0.1:27017/wp-telegram-bot';
+const DB_URL = process.env.DB_URL || 'mongodb://127.0.0.1:27017/wp-telegram-bot';
 const dbP = MongoClient.connect( DB_URL );
 
 dbP.then( db => {
