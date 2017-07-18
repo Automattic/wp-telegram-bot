@@ -13,7 +13,7 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 const bot = new TelegramBot( token, { polling: true } );
 
 const blogsToPoll = [];
-const POLL_INTERVAL = 5 * 1000;
+const POLL_INTERVAL = 5 * 60 * 1000;
 
 ( function blogWatcher() {
 	const now = Date.now();
@@ -48,10 +48,8 @@ function pollBlog( chatId, feedUrl, lastCheck = Date.now() ) {
 
 function updateChannel( chatId, feedUrl, rssItems, meta ) {
 	const rssLinks = rssItems.map( rssItem => rssItem.link );
-	console.log( 'rssLinks', rssLinks );
 	return db.getBlogSharedLinksOnChat( chatId, feedUrl ).then( links => {
 		const newLinks = rssLinks.filter( link => links.indexOf( link ) === -1 );
-		console.log( 'newLinks', newLinks );
 		if ( newLinks.length > 0 ) {
 			return db.addBlogSharedLinksOnChat( chatId, feedUrl, newLinks ).then( () => {
 				newLinks.forEach( link => bot.sendMessage( chatId, link ) );
