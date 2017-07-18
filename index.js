@@ -12,56 +12,85 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
 
-function followBlog( chatId, chatType, blogUrl ) {
-	try {
-		const parsedUrl = url.parse( blogUrl );
-		const blogFeedUrl = `${ parsedUrl.protocol }//${ parsedUrl.host }/feed/`;
+const blogsToPoll = {};
+const POLL_INTERVAL = 5 * 60 * 1000;
 
-		db.followBlog( chatId, chatType, parsedUrl.host );
-
-		getFeed( blogFeedUrl, function( err, items ) {
-			if ( err ) return;
-			if ( items && items.length > 0 ) {
-				const firstItem = items[0];
-				bot.sendMessage( chatId, firstItem.link );
-			}
-		} );
-	} catch ( exception ) {
-		return false;
+( function blogWatcher() {
+	const now = Date.now();
+	for ( let blogId in blogsToPoll ) {
+		let blog = blogsToPoll[ blogId ];
+		if ( now - blog.lastCheck > POLL_INTERVAL ) {
+			getFeed( blog.feedUrl, ( error, items, meta ) => {
+				if ( error ) return;
+				updateChannel( blog.chatId, items, meta );
+			} );
+			blog.lastCheck = now;
+			setTimeout( blogWatcher, 100 );
+			return;
+		}
 	}
+} )();
+
+function pollBlog( chatId, feedUrl ) {
+	blogsToPoll[ chatId ] = {
+		chatId,
+		feedUrl,
+		lastCheck: 0,
+	};
+}
+
+function updateChannel( chatId, rssItems, meta ) {
+	// TODO: search for items that have not been shared yet
+	if ( rssItems.length > 0 ) {
+		bot.sendMessage( chatId, rssItems[0].link );
+	}
+}
+
+function followBlog( chatId, chatType, blogUrl ) {
+	const feedUrl = getFeedUrl( blogUrl );
+
+	// check that the feed url is accessible
+	getFeed( feedUrl, ( error, items, meta ) => {
+		if ( error ) return;
+
+		updateChannel( chatId, items, meta );
+
+		db.followBlog( chatId, chatType, feedUrl );
+
+		pollBlog( chatId, feedUrl );
+	} );
+}
+
+function getFeedUrl( blogUrl ) {
+	return url.resolve( blogUrl, './feed' );
 }
 
 function getFeed( feedUrl, callback ) {
 	const feedRequest = request( feedUrl );
 	const feedparser = new FeedParser();
+	const items = [];
+	let meta = null;
 
 	feedRequest.on( 'error', callback );
-
-	feedRequest.on( 'response', function( response ) {
-		const stream = this;
-
+	feedRequest.on( 'response', ( response ) => {
 		if ( response.statusCode !== 200 ) {
 			callback( new Error( 'Bad status code' ) );
+		} else {
+			feedRequest.pipe( feedparser );
 		}
-		else {
-			stream.pipe(feedparser);
-		}
-	});
+	} );
 
 	feedparser.on( 'error', callback );
-
-	feedparser.on( 'readable', function() {
-		const stream = this;
-		const meta = this.meta;
-		const items = [];
+	feedparser.on( 'readable', () => {
 		let item;
 
-		while ( item = stream.read() ) {
+		while ( item = feedparser.read() ) {
 			items.push( item );
 		}
 
-		callback( null, items, meta );
+		meta = feedparser.meta;
 	} );
+	feedparser.on( 'end', () => callback( null, items, meta ) );
 }
 
 function getUrlFromMsgText( msgText ) {
