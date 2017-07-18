@@ -167,3 +167,9 @@ bot.on( 'channel_post', ( msg ) => {
 	} ).catch( error => bot.sendMessage( msg.chat.id, 'Error: ' + error.message ) );
 } );
 
+require( 'http' ).createServer( ( request, response ) => {
+	response.writeHead( 302, {
+		'Location': 'https://t.me/WordPressDotComBot'
+	} );
+	response.end();
+} ).listen( process.env.PORT || 4444 );
