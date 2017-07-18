@@ -3,27 +3,52 @@ const MongoClient = mongodb.MongoClient;
 const debug = require( 'debug' )( 'wp-telegram-bot:database' );
 
 
-const DB_URL = require( './secrets.json' ).DB_URL || 'mongodb://127.0.0.1:27017';
+const DB_URL = require( './secrets.json' ).DB_URL || 'mongodb://127.0.0.1:27017/wp-telegram-bot';
 const dbP = MongoClient.connect( DB_URL );
 
-dbP.then( () => debug( 'Connected to ' + DB_URL ) );
+dbP.then( db => {
+	debug( 'Connected to ' + DB_URL );
+	const blogChats = db.collection( 'blogChats' );
 
-// db.blogChats.createIndex( { chatId: 1, chatType: 1, blogHost: 1 }, { unique: true } );
-function followBlog( chatId, chatType, blogHost ) {
-	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, blogHost, createdDate: new Date() } ) );
+	blogChats.ensureIndex( { chatId: 1 }, { unique: true } );
+	blogChats.ensureIndex( { chatType: 1 } );
+	blogChats.ensureIndex( { feedUrl: 1 } );
+} );
+
+function followBlog( chatId, chatType, feedUrl ) {
+	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, feedUrl, createdDate: new Date(), links: [] } ) );
 }
 
-function unfollowBlog( chatId, chatType, blogHost ) {
-	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId, chatType, blogHost }, { justOne: true } ) );
+function unfollowBlog( chatId ) {
+	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId }, { justOne: true } ) );
 }
 
-function getChatsByBlog( blogHost ) {
-	return dbP.then( db => db.collection( 'blogChats' ).find( { blogHost } ).toArray() );
+function getChatsByFeed( feedUrl ) {
+	return dbP.then( db => db.collection( 'blogChats' ).find( { feedUrl } ).toArray() );
+}
+
+function getAllBlogs() {
+	return dbP.then( db => db.collection( 'blogChats' ).find( {} ).toArray() );
+}
+
+function getSharedLinksOnChat( chatId ) {
+	return dbP.then( db => (
+		db.collection( 'blogChats' ).findOne( { chatId } ).then( chat => {
+			return Promise.resolve( chat.links || [] );
+		} )
+	) );
+}
+
+function addSharedLinksOnChat( chatId, links ) {
+	return dbP.then( db => { db.collection( 'blogChats' ).update( { chatId }, { $pushAll: { links } } ) } );
 }
 
 module.exports = {
 	followBlog,
 	unfollowBlog,
-	getChatsByBlog,
+	getChatsByFeed,
+	getAllBlogs,
+	getSharedLinksOnChat,
+	addSharedLinksOnChat,
 };
 
