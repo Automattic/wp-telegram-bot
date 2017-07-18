@@ -86,7 +86,7 @@ bot.on( 'channel_post', ( msg ) => {
 
 		debug( 'Following ' + url );
 
-		bot.getChatAdministrators( msg.chat.id, msg.chat.username )
+		bot.getChatAdministrators( msg.chat.id )
 			.then( administrators => {
 				if ( administrators.filter( admin => admin.user.username === msg.chat.username ).length === 0 ) {
 					return new Error( 'You need to be an administrator of the channel to do that' );
