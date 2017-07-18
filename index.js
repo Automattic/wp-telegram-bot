@@ -1,4 +1,7 @@
+const url = require( 'url' );
 const TelegramBot = require( 'node-telegram-bot-api' );
+const FeedParser = require('feedparser');
+const request = require('request');
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = require( './secrets.json' ).BOT_TOKEN;
@@ -16,25 +19,55 @@ function joinChat( chat ) {
 	chats[ chat.id ] = chat;
 }
 
-function followBlog( url ) {
-	// TODO: get RSS content for this blog
+function followBlog( chatId, blogUrl ) {
+	try {
+		const parsedUrl = url.parse( blogUrl );
+		const blogFeedUrl = `${ parsedUrl.protocol }//${ parsedUrl.host }/feed/`;
+		getFeed( blogFeedUrl, function( err, items ) {
+			if ( err ) return;
+			if ( items && items.length > 0 ) {
+				const firstItem = items[0];
+				bot.sendMessage( chatId, firstItem.title + ' ' + firstItem.summary );
+			}
+		} );
+	} catch ( exception ) {
+		return false;
+	}
 }
 
-// Matches "/echo [whatever]"
-bot.onText( /\/echo (.+)/, ( msg, match ) => {
-	// 'msg' is the received Message from Telegram
-	// 'match' is the result of executing the regexp above on the text content
-	// of the message
+function getFeed( feedUrl, callback ) {
+	const feedRequest = request( feedUrl );
+	const feedparser = new FeedParser();
 
-	const chatId = msg.chat.id;
-	const resp = match[1]; // the captured "whatever"
+	feedRequest.on( 'error', callback );
 
-	// send back the matched "whatever" to the chat
-	bot.sendMessage( chatId, resp );
-} );
+	feedRequest.on( 'response', function( response ) {
+		const stream = this;
 
-// Listen for any kind of message. There are different kinds of
-// messages.
+		if ( response.statusCode !== 200 ) {
+			callback( new Error( 'Bad status code' ) );
+		}
+		else {
+			stream.pipe(feedparser);
+		}
+	});
+
+	feedparser.on( 'error', callback );
+
+	feedparser.on( 'readable', function() {
+		const stream = this;
+		const meta = this.meta;
+		const items = [];
+		let item;
+
+		while ( item = stream.read() ) {
+			items.push( item );
+		}
+
+		callback( null, items, meta );
+	} );
+}
+
 bot.on( 'message', ( msg ) => {
 	if ( ! hasJoinedChat( msg.chat.id ) ) {
 		joinChat( msg.chat );
@@ -51,7 +84,7 @@ bot.on( 'message', ( msg ) => {
 		const url = reResult[1];
 
 		// TODO: check that msg.from is admin on the channel
-		followBlog( url );
+		followBlog( msg.chat.id, url );
 	}
 
 	// send a message to the chat acknowledging receipt of their message

@@ -4,7 +4,9 @@
   "description": "A telegram bot for WordPress.com",
   "main": "index.js",
   "dependencies": {
-    "node-telegram-bot-api": "^0.27.1"
+    "feedparser": "^2.2.1",
+    "node-telegram-bot-api": "^0.27.1",
+    "request": "^2.81.0"
   },
   "devDependencies": {},
   "scripts": {
