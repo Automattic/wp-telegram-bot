@@ -3,9 +3,10 @@ const xmpp = require( 'xmpp.js' );
 const Client = xmpp.Client;
 const xml = xmpp.xml;
 
-const secrets = require( './secrets.json' );
-const XMPP_USER = secrets.XMPP_USER;
-const XMPP_PASS = secrets.XMPP_PASS;
+require( 'dotenv' ).load();
+
+const XMPP_USER = process.env.XMPP_USER;
+const XMPP_PASS = process.env.XMPP_PASS;
 const client = new Client( { jid: XMPP_USER, password: XMPP_PASS, preferred: 'PLAIN' } );
 
 let newPostCallBack = null;
@@ -14,9 +15,9 @@ client.plugin( require('@xmpp/plugins/starttls') );
 
 client.start( { uri: 'xmpp://xmpp.wordpress.com', domain: 'im.wordpress.com' } );
 
-client.on('error', err => debug( err.toString() ) );
-client.on('status', ( status, value ) => debug( 'status changed to', status, value ? value.toString() : '') );
-client.on('close', debug( 'connection closed' ) );
+client.on( 'error', err => debug( err.toString() ) );
+client.on( 'status', ( status, value ) => debug( 'status changed to', status, value ? value.toString() : '') );
+client.on( 'close', () => debug( 'connection closed' ) );
 
 client.on('online', jid => {
 	debug( 'online as ' + jid.toString() );
@@ -41,7 +42,7 @@ client.on('stanza', stanza => {
 			const messageText = body.getText();
 			const postUrlMatch = messageText.match(/(https?:\/\/.*$)/gi);
 			if ( postUrlMatch ) {
-				const postUrl = urlMatch[0];
+				const postUrl = postUrlMatch[0];
 				const blogHost = stanza.attrs.from;
 
 				if ( typeof newPostCallBack === 'function' ) {

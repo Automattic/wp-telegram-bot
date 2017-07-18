@@ -4,6 +4,7 @@ const FeedParser = require( 'feedparser' );
 const request = require( 'request' );
 const debug = require( 'debug' )( 'wp-telegram-bot' );
 const db = require( './database' );
+const xmpp = require( './xmpp' );
 
 require( 'dotenv' ).load();
 
@@ -13,107 +14,25 @@ const token = process.env.BOT_TOKEN;
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
 
-const blogsToPoll = [];
-const POLL_INTERVAL = 1 * 60 * 1000;
-
-( function blogWatcher() {
-	const now = Date.now();
-	for ( let i = 0; i < blogsToPoll.length; i++ ) {
-		let blog = blogsToPoll[ i ];
-		if ( now - blog.lastCheck > POLL_INTERVAL ) {
-			getFeed( blog.feedUrl, ( error, items, meta ) => {
-				if ( error ) {
-					console.error( 'error while reading feed ' + blog.feedUrl, error );
-					return;
-				}
-				updateChannel( blog.chatId, blog.feedUrl, items, meta );
-			} );
-			blog.lastCheck = now;
-			setTimeout( blogWatcher, 100 );
-			return;
-		}
-	}
-	setTimeout( blogWatcher, 1000 );
-} )();
-
-( function watchExistingBlogs() {
-	db.getAllBlogs().then( blogs => {
-		blogs.forEach( blog => pollBlog( blog.chatId, blog.feedUrl, 0 ) );
-	} );
-} )();
-
-function pollBlog( chatId, feedUrl, lastCheck = Date.now() ) {
-	blogsToPoll.push( {
-		chatId,
-		feedUrl,
-		lastCheck,
+function newPostForBlog( blogHost, postUrl ) {
+	db.getChatsByBlogHost( blogHost ).then( chats => {
+		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
-
-function updateChannel( chatId, feedUrl, rssItems, meta ) {
-	const rssLinks = rssItems.map( rssItem => rssItem.link );
-	return db.getBlogSharedLinksOnChat( chatId, feedUrl ).then( links => {
-		const newLinks = rssLinks.filter( link => links.indexOf( link ) === -1 );
-		if ( newLinks.length > 0 ) {
-			return db.addBlogSharedLinksOnChat( chatId, feedUrl, newLinks ).then( () => {
-				newLinks.forEach( link => bot.sendMessage( chatId, link ) );
-			} );
-		}
-	} );
-}
+xmpp.registerNewPostCallBack( newPostForBlog );
 
 function followBlog( chatId, chatType, blogUrl ) {
-	const feedUrl = getFeedUrl( blogUrl );
+	return Promise.resolve().then( () => {
+		const urlParts = url.parse( blogUrl );
 
-	return new Promise( ( resolve, reject ) => {
-		// check that the feed url is accessible
-		getFeed( feedUrl, ( error, items, meta ) => {
-			if ( error ) {
-				// TODO: send a message to inform the user that the url is not accessible
-				return reject( error );
-			}
-
-			db.followBlog( chatId, feedUrl, chatType ).then( () => {
-				updateChannel( chatId, feedUrl, items, meta );
-				pollBlog( chatId, feedUrl );
-				return resolve();
-			} ).catch( () => {
-				// TODO: we're probably already following this blog, inform the user
-			} )
-		} );
-	} );
-}
-
-function getFeedUrl( blogUrl ) {
-	return url.resolve( blogUrl, './feed' );
-}
-
-function getFeed( feedUrl, callback ) {
-	const feedRequest = request( feedUrl );
-	const feedparser = new FeedParser();
-	const items = [];
-	let meta = null;
-
-	feedRequest.on( 'error', callback );
-	feedRequest.on( 'response', ( response ) => {
-		if ( response.statusCode !== 200 ) {
-			callback( new Error( 'Bad status code' ) );
-		} else {
-			feedRequest.pipe( feedparser );
-		}
-	} );
-
-	feedparser.on( 'error', callback );
-	feedparser.on( 'readable', () => {
-		let item;
-
-		while ( item = feedparser.read() ) {
-			items.push( item );
+		if ( ! urlParts || ! urlParts.host ) {
+			return Promise.reject( new Error( 'Bad blog url' ) );
 		}
 
-		meta = feedparser.meta;
+		const blogHost = urlParts.host;
+
+		return db.followBlog( chatId, blogHost, chatType ).then( () => xmpp.subscribe( blogHost ) );
 	} );
-	feedparser.on( 'end', () => callback( null, items, meta ) );
 }
 
 function getUrlFromMsgText( msgText ) {
