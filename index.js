@@ -85,11 +85,16 @@ bot.on( 'channel_post', ( msg ) => {
 		const url = reResult[1];
 
 		debug( 'Following ' + url );
-		// TODO: check that msg.from is admin on the channel
-		followBlog( msg.chat.id, url );
-	}
 
-	// send a message to the chat acknowledging receipt of their message
-	bot.sendMessage( msg.chat.id, 'Received your message' );
+		bot.getChatAdministrators( msg.chat.id, msg.chat.username )
+			.then( administrators => {
+				if ( administrators.filter( admin => admin.user.username === msg.chat.username ).length === 0 ) {
+					return new Error( 'You need to be an administrator of the channel to do that' );
+				}
+			} )
+			.then( () => followBlog( msg.chat.id, url ) )
+			.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
+			.catch( error => bot.sendMessage( msg.chat.id, 'Error: ' + error.message ) );
+	}
 } );
 
