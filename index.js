@@ -54,7 +54,7 @@ function updateChannel( chatId, feedUrl, rssItems, meta ) {
 		console.log( 'newLinks', newLinks );
 		if ( newLinks.length > 0 ) {
 			return db.addBlogSharedLinksOnChat( chatId, feedUrl, newLinks ).then( () => {
-				newLinks.forEach( link => bot.sendMessage( chatId, rssItems[0].link ) );
+				newLinks.forEach( link => bot.sendMessage( chatId, link ) );
 			} );
 		}
 	} );
