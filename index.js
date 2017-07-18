@@ -1,7 +1,8 @@
 const url = require( 'url' );
 const TelegramBot = require( 'node-telegram-bot-api' );
-const FeedParser = require('feedparser');
-const request = require('request');
+const FeedParser = require( 'feedparser' );
+const request = require( 'request' );
+const debug = require( 'debug' )( 'wp-telegram-bot' );
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = require( './secrets.json' ).BOT_TOKEN;
@@ -68,7 +69,7 @@ function getFeed( feedUrl, callback ) {
 	} );
 }
 
-bot.on( 'message', ( msg ) => {
+bot.on( 'channel_post', ( msg ) => {
 	if ( ! hasJoinedChat( msg.chat.id ) ) {
 		joinChat( msg.chat );
 	}
@@ -78,11 +79,12 @@ bot.on( 'message', ( msg ) => {
 		return;
 	}
 
-	const reResult = /follow ((http|https):\/\/\S+)/gi.exec( 'follow https://stackoverflow.com/questions/4643' );
+	const reResult = /follow ((http|https):\/\/\S+)/gi.exec( msg.text );
 
 	if ( reResult && reResult.length >= 2 ) {
 		const url = reResult[1];
 
+		debug( 'Following ' + url );
 		// TODO: check that msg.from is admin on the channel
 		followBlog( msg.chat.id, url );
 	}
