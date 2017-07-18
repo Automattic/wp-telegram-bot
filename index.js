@@ -13,7 +13,7 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 const bot = new TelegramBot( token, { polling: true } );
 
 const blogsToPoll = [];
-const POLL_INTERVAL = 20 * 1000;
+const POLL_INTERVAL = 1 * 60 * 1000;
 
 ( function blogWatcher() {
 	const now = Date.now();
