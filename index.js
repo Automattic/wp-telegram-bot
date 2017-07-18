@@ -13,7 +13,7 @@ const token = require( './secrets.json' ).BOT_TOKEN;
 const bot = new TelegramBot( token, { polling: true } );
 
 const blogsToPoll = [];
-const POLL_INTERVAL = 5 * 60 * 1000;
+const POLL_INTERVAL = 20 * 1000;
 
 ( function blogWatcher() {
 	const now = Date.now();
@@ -21,7 +21,10 @@ const POLL_INTERVAL = 5 * 60 * 1000;
 		let blog = blogsToPoll[ i ];
 		if ( now - blog.lastCheck > POLL_INTERVAL ) {
 			getFeed( blog.feedUrl, ( error, items, meta ) => {
-				if ( error ) return;
+				if ( error ) {
+					console.error( 'error while reading feed ' + blog.feedUrl, error );
+					return;
+				}
 				updateChannel( blog.chatId, blog.feedUrl, items, meta );
 			} );
 			blog.lastCheck = now;
@@ -34,7 +37,7 @@ const POLL_INTERVAL = 5 * 60 * 1000;
 
 ( function watchExistingBlogs() {
 	db.getAllBlogs().then( blogs => {
-		Array.prototype.push.apply( blogsToPoll, blogs || [] );
+		blogs.forEach( blog => pollBlog( blog.chatId, blog.feedUrl, 0 ) );
 	} );
 } )();
 
@@ -160,6 +163,6 @@ bot.on( 'channel_post', ( msg ) => {
 	// only admins can post to channel
 	followBlog( msg.chat.id, 'channel', url ).then( () => {
 		bot.sendMessage( msg.chat.id, 'Following!' );
-	} );
+	} ).catch( error => bot.sendMessage( msg.chat.id, 'Error: ' + error.message ) );
 } );
 
