@@ -14,8 +14,8 @@ const token = process.env.BOT_TOKEN;
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
 
-function newPostForBlog( blogHost, postUrl ) {
-	db.getChatsByBlogHost( blogHost ).then( chats => {
+function newPostForBlog( blogPath, postUrl ) {
+	db.getChatsByBlogHost( blogPath ).then( chats => {
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
@@ -29,9 +29,9 @@ function followBlog( chatId, chatType, blogUrl ) {
 			return Promise.reject( new Error( 'Bad blog url' ) );
 		}
 
-		const blogHost = urlParts.host;
+		const blogPath = urlParts.host + urlParts.path;
 
-		return db.followBlog( chatId, blogHost, chatType ).then( () => xmpp.subscribe( blogHost ) );
+		return db.followBlog( chatId, blogPath, chatType ).then( () => xmpp.subscribe( blogPath ) );
 	} );
 }
 

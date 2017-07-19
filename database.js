@@ -10,19 +10,19 @@ const dbP = MongoClient.connect( DB_URL );
 dbP.then( db => {
 	debug( 'Connected to ' + DB_URL );
 
-	db.collection( 'blogChats' ).ensureIndex( { chatId: 1, blogHost: 1 }, { unique: true } );
+	db.collection( 'blogChats' ).ensureIndex( { chatId: 1, blogPath: 1 }, { unique: true } );
 } );
 
-function followBlog( chatId, blogHost, chatType ) {
-	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, blogHost, createdDate: new Date() } ) );
+function followBlog( chatId, blogPath, chatType ) {
+	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, blogPath, createdDate: new Date() } ) );
 }
 
-function unfollowBlog( chatId, blogHost ) {
-	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId, blogHost }, { justOne: true } ) );
+function unfollowBlog( chatId, blogPath ) {
+	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId, blogPath }, { justOne: true } ) );
 }
 
-function getChatsByBlogHost( blogHost ) {
-	return dbP.then( db => db.collection( 'blogChats' ).find( { blogHost } ).toArray() );
+function getChatsByBlogHost( blogPath ) {
+	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath } ).toArray() );
 }
 
 module.exports = {
