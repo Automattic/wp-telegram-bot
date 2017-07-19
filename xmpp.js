@@ -61,8 +61,9 @@ function sendMessage( to, text ) {
 	return client.send( message );
 }
 
-const subscribe = blogHost => sendMessage( 'bot@im.wordpress.com', 'sub ' + blogHost );
-const unsubscribe = blogHost => sendMessage( 'bot@im.wordpress.com', 'unsub ' + blogHost );
+// see: https://en.support.wordpress.com/jabber/
+const subscribe = blogHost => sendMessage( 'bot@im.wordpress.com', 'sub ' + blogHost + '/posts' );
+const unsubscribe = blogHost => sendMessage( 'bot@im.wordpress.com', 'unsub ' + blogHost + '/posts' );
 const registerNewPostCallBack = callback => newPostCallBack = callback;
 
 module.exports = {
