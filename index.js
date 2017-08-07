@@ -10,7 +10,6 @@ require( 'dotenv' ).load();
 
 // replace the value below with the Telegram token you receive from @BotFather
 const token = process.env.BOT_TOKEN;
-const botName = process.env.BOT_NAME;
 
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
@@ -44,15 +43,8 @@ function getUrlFromMsgText( msgText ) {
 	return null;
 }
 
-function isBotMentioned( msg ) {
-	const msgEntities = msg.entities || [];
-	return msgEntities.filter( entity =>
-		entity.type === 'mention' && msg.text.substr( entity.offset, entity.length ) === '@' + botName
-	).length > 0;
-}
-
 bot.on( 'message', msg => {
-	if ( msg.chat.type !== 'group' || ! isBotMentioned( msg ) ) {
+	if ( msg.chat.type !== 'group' ) {
 		return;
 	}
 
@@ -75,8 +67,8 @@ bot.on( 'message', msg => {
 } );
 
 bot.on( 'channel_post', ( msg ) => {
-	// ignore messages from groups and those that don't contain @BotName
-	if ( msg.chat.type !== 'channel' || ! isBotMentioned( msg ) ) {
+	// ignore messages from groups
+	if ( msg.chat.type !== 'channel' ) {
 		return;
 	}
 
