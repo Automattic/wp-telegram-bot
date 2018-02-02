@@ -33,9 +33,9 @@ client.on('online', jid => {
 } );
 
 client.on('stanza', stanza => {
-	console.log('>> Stanza', stanza.toString())
+	debug( 'received stanza ' + stanza.toString() );
 	if ( stanza.is( 'message' ) ) {
-		debug( 'got message ' + stanza.toString() );
+		debug( 'stanza is message ' );
 		const body = stanza.getChild( 'body' );
 
 		if ( body ) {

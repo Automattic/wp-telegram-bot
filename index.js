@@ -53,6 +53,16 @@ Here's how you can use this bot:
 * Voilà!  Your channel or group will now receive a notification everytime a new post is created
 `;
 
+function handleError( error, id, url ) {
+	debug( error.message );
+
+	if ( error.message.includes( 'E11000 duplicate key' )) {
+		return bot.sendMessage( id, `You seem to already be following ${url}` );
+	}
+
+	return bot.sendMessage( id, `Sorry - there was a problem following ${url}` );
+}
+
 bot.on( 'message', msg => {
 	debug( 'received', msg );
 
@@ -79,11 +89,11 @@ bot.on( 'message', msg => {
 		} )
 		.then( () => followBlog( msg.chat.id, 'group', url ) )
 		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
-		.catch( error => bot.sendMessage( msg.chat.id, 'Error: ' + error.message ) );
-
+		.catch( error => handleError( error, msg.chat.id, urlfix/friendly-error-messages ) );
 } );
 
 bot.on( 'channel_post', ( msg ) => {
+	debug( 'received', msg );
 	// ignore messages from groups
 	if ( msg.chat.type !== 'channel' ) {
 		return;
@@ -98,9 +108,9 @@ bot.on( 'channel_post', ( msg ) => {
 	debug( 'Following ' + url );
 
 	// only admins can post to channel
-	followBlog( msg.chat.id, 'channel', url ).then( () => {
-		bot.sendMessage( msg.chat.id, 'Following!' );
-	} ).catch( error => bot.sendMessage( msg.chat.id, 'Error: ' + error.message ) );
+	followBlog( msg.chat.id, 'channel', url )
+		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
+		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
 require( 'http' ).createServer( ( request, response ) => {
