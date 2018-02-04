@@ -56,8 +56,9 @@ Here's how you can use this bot:
 bot.on( 'message', msg => {
 	debug( 'received', msg );
 
-	if ( msg.chat.type == 'private' ) {
+	if ( msg.chat.type === 'private' ) {
 		bot.sendMessage( msg.chat.id, usage );
+		return;
 	}
 
 	if ( msg.chat.type !== 'group' ) {
