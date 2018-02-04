@@ -43,7 +43,24 @@ function getUrlFromMsgText( msgText ) {
 	return null;
 }
 
+const usage = `Hi there!
+
+Here's how you can use this bot:
+
+* Create a channel or group
+* Add this bot as an administrator
+* Type 'follow https://yourexcellentsite.com' into the channel or group
+* Voilà!  Your channel or group will now receive a notification everytime a new post is created
+`;
+
 bot.on( 'message', msg => {
+	debug( 'received', msg );
+
+	if ( msg.chat.type === 'private' ) {
+		bot.sendMessage( msg.chat.id, usage );
+		return;
+	}
+
 	if ( msg.chat.type !== 'group' ) {
 		return;
 	}
