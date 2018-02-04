@@ -8,11 +8,9 @@ const DB_URL = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/wp-telegram
 const dbP = MongoClient.connect( DB_URL );
 
 function normalizeBlogPath( blogPath ) {
-	if ( ! blogPath.endsWith( '/' ) ) {
-		return blogPath + '/';
-	}
+	const cleanPath = blogPath.replace(/∕/g, '/');
 
-	return blogPath;
+	return cleanPath.endsWith( '/' ) ? cleanPath : cleanPath + '/';
 }
 
 dbP.then( db => {
@@ -30,7 +28,9 @@ function unfollowBlog( chatId, blogPath ) {
 }
 
 function getChatsByBlogHost( blogPath ) {
-	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: normalizeBlogPath( blogPath ) } ).toArray() );
+	const cleanPath = normalizeBlogPath( blogPath );
+	debug( 'retrieving chats by path ' + cleanPath );
+	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: cleanPath } ).toArray() );
 }
 
 module.exports = {
@@ -38,4 +38,3 @@ module.exports = {
 	unfollowBlog,
 	getChatsByBlogHost,
 };
-
