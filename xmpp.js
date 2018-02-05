@@ -32,14 +32,32 @@ client.on('online', jid => {
 	.then( data => client.send( xml( 'presence', { 'xml:lang': 'en' } ) ) );
 } );
 
+const replyHandlers = [];
+
+const botName = 'bot@im.wordpress.com';
+
+function handleBotReply( message ) {
+	const lastCallback = replyHandlers.pop();
+	if ( lastCallback ) {
+		lastCallback( message );
+	}
+}
+
 client.on('stanza', stanza => {
-	console.log('>> Stanza', stanza.toString())
+	debug( `received stanza: ${stanza.toString()}` );
 	if ( stanza.is( 'message' ) ) {
-		debug( 'got message ' + stanza.toString() );
 		const body = stanza.getChild( 'body' );
+		const from = stanza.attrs.from;
 
 		if ( body ) {
 			const messageText = body.getText();
+			debug( `received message "${messageText}" from "${from}"` );
+
+			if ( from === botName ) {
+				handleBotReply( messageText );
+				return;
+			}
+
 			const postUrlMatch = messageText.match(/(https?:\/\/.*$)/gi);
 			if ( postUrlMatch ) {
 				const postUrl = postUrlMatch[0];
@@ -56,14 +74,18 @@ client.on('stanza', stanza => {
 client.handle('authenticate', authenticate => authenticate( XMPP_USER, XMPP_PASS ) )
 client.handle('bind', bind => bind( 'bot' ) )
 
-function sendMessage( to, text ) {
-	const message = xml('message', { to: to } , xml('body', null, text ) );
+function sendMessage( text ) {
+	const message = xml('message', { to: botName } , xml('body', null, text ) );
 	return client.send( message );
 }
 
 // see: https://en.support.wordpress.com/jabber/
-const subscribe = blogPath => sendMessage( 'bot@im.wordpress.com', 'sub ' + blogPath + '/posts' );
-const unsubscribe = blogPath => sendMessage( 'bot@im.wordpress.com', 'unsub ' + blogPath + '/posts' );
+function subscribe( blogPath, replyHandler ) {
+	replyHandlers.push( replyHandler );
+	sendMessage( `sub ${blogPath}/posts` );
+}
+
+const unsubscribe = blogPath => sendMessage( 'unsub ' + blogPath + '/posts' );
 const registerNewPostCallBack = callback => newPostCallBack = callback;
 
 module.exports = {
