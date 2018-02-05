@@ -86,7 +86,6 @@ bot.on( 'message', msg => {
 		if ( administrators.filter( admin => admin.user.username === msg.from.username ).length === 0 ) {
 			return Promise.reject( new Error( 'You need to be an administrator of the channel to do that' ) );
 		}
-		return Promise.resolve();
 	} )
 	.then( () => followBlog( msg.chat.id, 'group', url ) )
 	.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
