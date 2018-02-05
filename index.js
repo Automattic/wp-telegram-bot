@@ -89,7 +89,7 @@ bot.on( 'message', msg => {
 		} )
 		.then( () => followBlog( msg.chat.id, 'group', url ) )
 		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
-		.catch( error => handleError( error, msg.chat.id, urlfix/friendly-error-messages ) );
+		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
 bot.on( 'channel_post', ( msg ) => {
