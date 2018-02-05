@@ -56,11 +56,11 @@ Here's how you can use this bot:
 function handleError( error, id, url ) {
 	debug( error.message );
 
-	if ( error.message.includes( 'E11000 duplicate key' )) {
+	if ( error.name === 'MongoError' && error.code === 11000 ) {
 		return bot.sendMessage( id, `You seem to already be following ${url}` );
 	}
 
-	return bot.sendMessage( id, `Sorry - there was a problem following ${url}` );
+	return bot.sendMessage( id, error.message );
 }
 
 bot.on( 'message', msg => {
