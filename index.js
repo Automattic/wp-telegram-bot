@@ -38,25 +38,30 @@ function commandResponseReceived( id, blog, subscriptionMessage ) {
 
 xmpp.registerCommandResponseCallBack( commandResponseReceived );
 
-function followBlog( chatId, chatType, blogUrl ) {
-	return Promise.resolve()
-		.then( () => {
-			const urlParts = url.parse( blogUrl );
+function blogPath( blogUrl ) {
+	const urlParts = url.parse( blogUrl );
 
-			if ( ! urlParts || ! urlParts.host ) {
-				return Promise.reject( new Error( 'Bad blog url' ) );
-			}
+	if ( ! urlParts || ! urlParts.host ) {
+		return Promise.reject( new Error( 'Bad blog url' ) );
+	}
 
-			const blogPath = urlParts.host + urlParts.path;
-
-			return xmpp.subscribe( blogPath, chatId );
-		} );
+	return urlParts.host + urlParts.path;
 }
 
-function getUrlFromMsgText( msgText ) {
-	const reResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( reResult && reResult.length >= 2 ) {
-		return reResult[ 1 ];
+function followBlog( chatId, blogUrl ) {
+	return Promise.resolve()
+		.then( () => xmpp.subscribe( blogPath( blogUrl ), chatId ) );
+}
+
+function extractCommand( msgText ) {
+	const unfollowResult = /unfollow ((http|https):\/\/\S+)/gi.exec( msgText );
+	if ( unfollowResult && unfollowResult.length > 1) {
+		return { method: 'unfollow', blog: unfollowResult[ 1 ] };
+
+	}
+	const followResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
+	if ( followResult && followResult.length > 1 ) {
+		return { method: 'follow', blog: followResult[ 1 ] };
 	}
 	return null;
 }
@@ -81,6 +86,19 @@ function handleError( error, id, url ) {
 	return bot.sendMessage( id, error.message );
 }
 
+function processCommand( id, command ) {
+	if ( command.method === 'follow' ) {
+		return followBlog( id, command.blog );
+	}
+	if ( command.method === 'unfollow' ) {
+		return db.unfollowBlog( id, blogPath( command.blog ) )
+			.then(
+				() => bot.sendMessage( id, `No longer following ${command.blog}` )
+			);
+	}
+	return null;
+}
+
 bot.on( 'message', msg => {
 	debug( 'received', msg );
 
@@ -93,9 +111,9 @@ bot.on( 'message', msg => {
 		return;
 	}
 
-	const url = getUrlFromMsgText( msg.text );
+	const command = extractCommand( msg.text );
 
-	if ( ! url ) {
+	if ( ! command ) {
 		return;
 	}
 
@@ -105,7 +123,7 @@ bot.on( 'message', msg => {
 				return Promise.reject( new Error( 'You need to be an administrator of the channel to do that' ) );
 			}
 		} )
-		.then( () => followBlog( msg.chat.id, 'group', url ) )
+		.then( () => processCommand( msg.chat.id, command ) )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
@@ -116,16 +134,16 @@ bot.on( 'channel_post', ( msg ) => {
 		return;
 	}
 
-	const url = getUrlFromMsgText( msg.text );
+	const command = extractCommand( msg.text );
 
-	if ( ! url ) {
+	if ( ! command ) {
 		return;
 	}
 
 	debug( 'Following ' + url );
 
 	// only admins can post to channel
-	followBlog( msg.chat.id, 'channel', url )
+	processCommand( msg.chat.id, command )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
