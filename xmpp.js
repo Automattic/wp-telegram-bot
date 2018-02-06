@@ -32,14 +32,42 @@ client.on('online', jid => {
 	.then( data => client.send( xml( 'presence', { 'xml:lang': 'en' } ) ) );
 } );
 
+const botId = 'bot@im.wordpress.com';
+let commandResponseCallback = null;
+
+function handleBotReply( messages ) {
+	debug( 'bot reply: ', messages );
+	const channelMatch = /(\S+).channel: blog not found/.exec( messages[0] );
+	const channelId = channelMatch && channelMatch.length > 0 ? channelMatch[1] : null;
+    const subscriptionMessageParts = messages[1] && messages[1].split( ':' );
+	let blog = null;
+	let subscriptionMessage = null;
+	if ( subscriptionMessageParts && subscriptionMessageParts.length > 1 ) {
+		blog = subscriptionMessageParts[0].trim();
+		subscriptionMessage = subscriptionMessageParts[1].trim();
+	}
+
+	debug( `Response for subscription to ${blog} in channel ${channelId} was ${subscriptionMessage}` );
+	commandResponseCallback( channelId, blog, subscriptionMessage );
+}
+
 client.on('stanza', stanza => {
-	debug( 'received stanza ' + stanza.toString() );
+	debug( `received stanza: ${stanza.toString()}` );
+
 	if ( stanza.is( 'message' ) ) {
-		debug( 'stanza is message ' );
 		const body = stanza.getChild( 'body' );
+		const from = stanza.attrs.from;
 
 		if ( body ) {
 			const messageText = body.getText();
+
+			debug( `received message "${messageText}" from "${from}"` );
+
+			if ( from === botId ) {
+				handleBotReply( messageText.split( "\n" ) );
+				return;
+			}
+
 			const postUrlMatch = messageText.match(/(https?:\/\/.*$)/gi);
 			if ( postUrlMatch ) {
 				const postUrl = postUrlMatch[0];
@@ -62,12 +90,15 @@ function sendMessage( to, text ) {
 }
 
 // see: https://en.support.wordpress.com/jabber/
-const subscribe = blogPath => sendMessage( 'bot@im.wordpress.com', 'sub ' + blogPath + '/posts' );
-const unsubscribe = blogPath => sendMessage( 'bot@im.wordpress.com', 'unsub ' + blogPath + '/posts' );
+const subscribe = ( blogPath, id ) => sendMessage( botId, `sub ${id}.channel ${blogPath}/posts` );
+const unsubscribe = blogPath => sendMessage( botId, 'unsub ' + blogPath + '/posts' );
+
 const registerNewPostCallBack = callback => newPostCallBack = callback;
+const registerCommandResponseCallBack = callback => commandResponseCallback = callback;
 
 module.exports = {
 	subscribe,
 	unsubscribe,
-	registerNewPostCallBack
+	registerNewPostCallBack,
+	registerCommandResponseCallBack,
 };

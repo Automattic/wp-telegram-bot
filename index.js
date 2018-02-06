@@ -19,20 +19,38 @@ function newPostForBlog( blogPath, postUrl ) {
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
+
 xmpp.registerNewPostCallBack( newPostForBlog );
 
+function commandResponseReceived( id, blog, subscriptionMessage ) {
+	if ( subscriptionMessage === 'blog not found' ) {
+		bot.sendMessage( id, `${blog} is not a WordPress.com site` );
+		return;
+	}
+	db.followBlog( id, blog, 'channel' )
+		.then(
+			() => bot.sendMessage( id, `Now following ${blog}` )
+		)
+		.catch(
+			error => handleError( error, id, blog )
+		);
+}
+
+xmpp.registerCommandResponseCallBack( commandResponseReceived );
+
 function followBlog( chatId, chatType, blogUrl ) {
-	return Promise.resolve().then( () => {
-		const urlParts = url.parse( blogUrl );
+	return Promise.resolve()
+		.then( () => {
+			const urlParts = url.parse( blogUrl );
 
-		if ( ! urlParts || ! urlParts.host ) {
-			return Promise.reject( new Error( 'Bad blog url' ) );
-		}
+			if ( ! urlParts || ! urlParts.host ) {
+				return Promise.reject( new Error( 'Bad blog url' ) );
+			}
 
-		const blogPath = urlParts.host + urlParts.path;
+			const blogPath = urlParts.host + urlParts.path;
 
-		return db.followBlog( chatId, blogPath, chatType ).then( () => xmpp.subscribe( blogPath ) );
-	} );
+			return xmpp.subscribe( blogPath, chatId );
+		} );
 }
 
 function getUrlFromMsgText( msgText ) {
@@ -88,7 +106,6 @@ bot.on( 'message', msg => {
 			}
 		} )
 		.then( () => followBlog( msg.chat.id, 'group', url ) )
-		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
@@ -109,7 +126,6 @@ bot.on( 'channel_post', ( msg ) => {
 
 	// only admins can post to channel
 	followBlog( msg.chat.id, 'channel', url )
-		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
