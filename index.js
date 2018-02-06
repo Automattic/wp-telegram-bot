@@ -81,6 +81,14 @@ function handleError( error, id, url ) {
 	return bot.sendMessage( id, error.message );
 }
 
+function sendUnfollowAcknowledgement( id, blog, count ) {
+	if ( count === 0) {
+		bot.sendMessage( id, `It seems you were not following ${blog}` );
+	} else {
+		bot.sendMessage( id, `No longer following ${blog}` );
+	}
+}
+
 function processCommand( id, command ) {
 	if ( command.method === 'follow' ) {
 		// we do not send a bot response yet:
@@ -93,7 +101,7 @@ function processCommand( id, command ) {
 		// other channels may have a subscription to this same blog.
 		return Promise.resolve()
 			.then( () => db.unfollowBlog( id, blogPath( command.blog ) ) )
-			.then( () => bot.sendMessage( id, `No longer following ${command.blog}` ) );
+			.then( ( result ) => sendUnfollowAcknowledgement( id, command.blog, result ) );
 	}
 	return Promise.resolve();
 }
