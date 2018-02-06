@@ -42,15 +42,10 @@ function blogPath( blogUrl ) {
 	const urlParts = url.parse( blogUrl );
 
 	if ( ! urlParts || ! urlParts.host ) {
-		return Promise.reject( new Error( 'Bad blog url' ) );
+		throw new Error( 'Bad blog url' );
 	}
 
 	return urlParts.host + urlParts.path;
-}
-
-function followBlog( chatId, blogUrl ) {
-	return Promise.resolve()
-		.then( () => xmpp.subscribe( blogPath( blogUrl ), chatId ) );
 }
 
 function extractCommand( msgText ) {
@@ -88,15 +83,19 @@ function handleError( error, id, url ) {
 
 function processCommand( id, command ) {
 	if ( command.method === 'follow' ) {
-		return followBlog( id, command.blog );
+		// we do not send a bot response yet:
+		// the response to xmpp sub command will trigger the response
+		return Promise.resolve()
+			.then( () => xmpp.subscribe( blogPath( blogUrl ), chatId ) );
 	}
 	if ( command.method === 'unfollow' ) {
-		return db.unfollowBlog( id, blogPath( command.blog ) )
-			.then(
-				() => bot.sendMessage( id, `No longer following ${command.blog}` )
-			);
+		// we do not send an xmpp unsub command yet:
+		// other channels may have a subscription to this same blog.
+		return Promise.resolve()
+			.then( () => db.unfollowBlog( id, blogPath( command.blog ) ) )
+			.then( () => bot.sendMessage( id, `No longer following ${command.blog}` ) );
 	}
-	return null;
+	return Promise.resolve();
 }
 
 bot.on( 'message', msg => {
