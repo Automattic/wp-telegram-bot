@@ -19,7 +19,7 @@ function newPostForBlog( blogPath, postUrl ) {
 		// If we don't have any telegram channels/groups for that blog
 		// anymore, remove subscription on xmpp as well:
 		if ( chats.length === 0 ) {
-			xmpp.subscribe( blogPath );
+			xmpp.unsubscribe( blogPath );
 			return;
 		}
 		
