@@ -47,8 +47,10 @@ function handleBotReply( messages ) {
 		subscriptionMessage = subscriptionMessageParts[1].trim();
 	}
 
-	debug( `Response for subscription to ${blog} in channel ${channelId} was ${subscriptionMessage}` );
-	commandResponseCallback( channelId, blog, subscriptionMessage );
+	if ( channelId && blog && subscriptionMessage ) {
+		debug( `Response for subscription to ${blog} in channel ${channelId} was ${subscriptionMessage}` );
+		commandResponseCallback( channelId, blog, subscriptionMessage );
+	}
 }
 
 client.on('stanza', stanza => {
