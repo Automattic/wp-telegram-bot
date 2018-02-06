@@ -16,6 +16,13 @@ const bot = new TelegramBot( token, { polling: true } );
 
 function newPostForBlog( blogPath, postUrl ) {
 	db.getChatsByBlogHost( blogPath ).then( chats => {
+		// If we don't have any telegram channels/groups for that blog
+		// anymore, remove subscription on xmpp as well:
+		if ( chats.length === 0 ) {
+			xmpp.subscribe( blogPath );
+			return;
+		}
+		
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
