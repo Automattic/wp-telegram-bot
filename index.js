@@ -16,29 +16,54 @@ const bot = new TelegramBot( token, { polling: true } );
 
 function newPostForBlog( blogPath, postUrl ) {
 	db.getChatsByBlogHost( blogPath ).then( chats => {
+		// If we don't have any telegram channels/groups for that blog
+		// anymore, remove subscription on xmpp as well:
+		if ( chats.length === 0 ) {
+			xmpp.unsubscribe( blogPath );
+			return;
+		}
+		
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
+
 xmpp.registerNewPostCallBack( newPostForBlog );
 
-function followBlog( chatId, chatType, blogUrl ) {
-	return Promise.resolve().then( () => {
-		const urlParts = url.parse( blogUrl );
-
-		if ( ! urlParts || ! urlParts.host ) {
-			return Promise.reject( new Error( 'Bad blog url' ) );
-		}
-
-		const blogPath = urlParts.host + urlParts.path;
-
-		return db.followBlog( chatId, blogPath, chatType ).then( () => xmpp.subscribe( blogPath ) );
-	} );
+function commandResponseReceived( id, blog, subscriptionMessage ) {
+	if ( subscriptionMessage === 'blog not found' ) {
+		bot.sendMessage( id, `${blog} is not a WordPress.com site` );
+		return;
+	}
+	db.followBlog( id, blog, 'channel' )
+		.then(
+			() => bot.sendMessage( id, `Now following ${blog}` )
+		)
+		.catch(
+			error => handleError( error, id, blog )
+		);
 }
 
-function getUrlFromMsgText( msgText ) {
-	const reResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( reResult && reResult.length >= 2 ) {
-		return reResult[ 1 ];
+xmpp.registerCommandResponseCallBack( commandResponseReceived );
+
+function blogPath( blogUrl ) {
+	const urlParts = url.parse( blogUrl );
+
+	if ( ! urlParts || ! urlParts.host ) {
+		throw new Error( 'Bad blog url' );
+	}
+
+	return urlParts.host + urlParts.path;
+}
+
+function extractCommand( msgText ) {
+	const unfollowResult = /unfollow ((http|https):\/\/\S+)/gi.exec( msgText );
+	if ( unfollowResult && unfollowResult.length > 1) {
+		return { method: 'unfollow', blog: unfollowResult[ 1 ] };
+
+	}
+	const followResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
+	if ( followResult && followResult.length > 1 ) {
+		return { method: 'follow', blog: followResult[ 1 ] };
 	}
 	return null;
 }
@@ -63,6 +88,31 @@ function handleError( error, id, url ) {
 	return bot.sendMessage( id, error.message );
 }
 
+function sendUnfollowAcknowledgement( id, blog, count ) {
+	if ( count === 0) {
+		bot.sendMessage( id, `It seems you were not following ${blog}` );
+	} else {
+		bot.sendMessage( id, `No longer following ${blog}` );
+	}
+}
+
+function processCommand( id, command ) {
+	if ( command.method === 'follow' ) {
+		// we do not send a bot response yet:
+		// the response to xmpp sub command will trigger the response
+		return Promise.resolve()
+			.then( () => xmpp.subscribe( blogPath( command.blog ), id ) );
+	}
+	if ( command.method === 'unfollow' ) {
+		// we do not send an xmpp unsub command yet:
+		// other channels may have a subscription to this same blog.
+		return Promise.resolve()
+			.then( () => db.unfollowBlog( id, blogPath( command.blog ) ) )
+			.then( ( result ) => sendUnfollowAcknowledgement( id, command.blog, result ) );
+	}
+	return Promise.resolve();
+}
+
 bot.on( 'message', msg => {
 	debug( 'received', msg );
 
@@ -75,9 +125,9 @@ bot.on( 'message', msg => {
 		return;
 	}
 
-	const url = getUrlFromMsgText( msg.text );
+	const command = extractCommand( msg.text );
 
-	if ( ! url ) {
+	if ( ! command ) {
 		return;
 	}
 
@@ -87,8 +137,7 @@ bot.on( 'message', msg => {
 				return Promise.reject( new Error( 'You need to be an administrator of the channel to do that' ) );
 			}
 		} )
-		.then( () => followBlog( msg.chat.id, 'group', url ) )
-		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
+		.then( () => processCommand( msg.chat.id, command ) )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
@@ -99,17 +148,16 @@ bot.on( 'channel_post', ( msg ) => {
 		return;
 	}
 
-	const url = getUrlFromMsgText( msg.text );
+	const command = extractCommand( msg.text );
 
-	if ( ! url ) {
+	if ( ! command ) {
 		return;
 	}
 
 	debug( 'Following ' + url );
 
 	// only admins can post to channel
-	followBlog( msg.chat.id, 'channel', url )
-		.then( () => bot.sendMessage( msg.chat.id, 'Following!' ) )
+	processCommand( msg.chat.id, command )
 		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 

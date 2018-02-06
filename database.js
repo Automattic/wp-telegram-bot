@@ -20,11 +20,24 @@ dbP.then( db => {
 } );
 
 function followBlog( chatId, blogPath, chatType ) {
-	return dbP.then( db => db.collection( 'blogChats' ).insert( { chatId, chatType, blogPath: normalizeBlogPath( blogPath ), createdDate: new Date() } ) );
+	debug( `adding document for chat ${chatId}, blogPath ${blogPath} and chatType ${chatType}` );
+	const document = {
+		chatId: parseInt( chatId ),
+		chatType,
+		blogPath: normalizeBlogPath( blogPath ),
+		createdDate: new Date()
+	};
+	return dbP
+		.then( db => db.collection( 'blogChats' ).insert( document ) );
 }
 
 function unfollowBlog( chatId, blogPath ) {
-	return dbP.then( db => db.collection( 'blogChats' ).remove( { chatId, blogPath: normalizeBlogPath( blogPath ) }, { justOne: true } ) );
+	debug( `removing documents for chat ${chatId} and blogPath ${blogPath}` );
+	const criteria = { chatId: parseInt( chatId ), blogPath: normalizeBlogPath( blogPath ) };
+	const limit = { justOne: true };
+	return dbP
+		.then( db => db.collection( 'blogChats' ).remove( criteria, limit ) )
+		.then( response => response.result && response.result.n );
 }
 
 function getChatsByBlogHost( blogPath ) {
