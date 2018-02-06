@@ -86,7 +86,7 @@ function processCommand( id, command ) {
 		// we do not send a bot response yet:
 		// the response to xmpp sub command will trigger the response
 		return Promise.resolve()
-			.then( () => xmpp.subscribe( blogPath( blogUrl ), chatId ) );
+			.then( () => xmpp.subscribe( blogPath( command.blog ), id ) );
 	}
 	if ( command.method === 'unfollow' ) {
 		// we do not send an xmpp unsub command yet:
