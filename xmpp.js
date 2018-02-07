@@ -11,7 +11,8 @@ const client = new Client( { jid: XMPP_USER, password: XMPP_PASS, preferred: 'PL
 
 let newPostCallBack = null;
 
-client.plugin( require('@xmpp/plugins/starttls') );
+client.plugin( require( '@xmpp/plugins/starttls' ) );
+client.plugin( require( '@xmpp/plugins/session-establishment' ) );
 
 client.start( { uri: 'xmpp://xmpp.wordpress.com', domain: 'im.wordpress.com' } );
 
@@ -21,15 +22,7 @@ client.on( 'close', () => debug( 'connection closed' ) );
 
 client.on('online', jid => {
 	debug( 'online as ' + jid.toString() );
-
-	// workaround for: https://github.com/xmppjs/xmpp.js/pull/369
-	// <iq type="set" id="5e5b6f40-5187-4373-9929-27c3149ca6ca-2"><session xmlns="urn:ietf:params:xml:ns:xmpp-session" /></iq>
-	client.sendReceive(
-		xml( 'iq', { type: 'set', id: 'session_set' },
-			xml( 'session', 'urn:ietf:params:xml:ns:xmpp-session' )
-		)
-	)
-	.then( data => client.send( xml( 'presence', { 'xml:lang': 'en' } ) ) );
+	client.send( xmpp.xml( 'presence', { 'xml:lang': 'en' } ) );
 } );
 
 const botId = 'bot@im.wordpress.com';
