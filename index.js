@@ -54,7 +54,7 @@ function normalizeBlogUrl( blogUrl ) {
 	// as subscriptions are shared between chats at the moment
 	// Let's strip all accepted types of custom feeds from the url
 	// See accepted types here: https://en.support.wordpress.com/feeds/#your-feeds
-	blogUrl = blogUrl.replace( /https?:\/\/|\/comments|((\/category|\/author|\/tag)\/[^ \/]+)?\/feeds\/?/ig, '' );
+	blogUrl = blogUrl.replace( /https?:\/\/|\/comments|((\/category|\/author|\/tag)\/[^ \/]+)?\/feeds|\/$/ig, '' );
 
 	const urlParts = url.parse( `http://${blogUrl}` );
 
