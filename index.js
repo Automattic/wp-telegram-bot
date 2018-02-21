@@ -22,7 +22,7 @@ function newPostForBlog( blogPath, postUrl ) {
 			xmpp.unsubscribe( blogPath );
 			return;
 		}
-		
+
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
@@ -46,7 +46,7 @@ function commandResponseReceived( id, blog, subscriptionMessage ) {
 xmpp.registerCommandResponseCallBack( commandResponseReceived );
 
 function blogPath( blogUrl ) {
-	const urlParts = url.parse( blogUrl );
+	const urlParts = url.parse( `http://${blogUrl}` );
 
 	if ( ! urlParts || ! urlParts.host ) {
 		throw new Error( 'Bad blog url' );
@@ -56,14 +56,13 @@ function blogPath( blogUrl ) {
 }
 
 function extractCommand( msgText ) {
-	const unfollowResult = /unfollow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( unfollowResult && unfollowResult.length > 1) {
-		return { method: 'unfollow', blog: unfollowResult[ 1 ] };
-
+	const unfollowResult = /unfollow (https?:\/\/)?(\S+)/i.exec( msgText );
+	if ( unfollowResult && unfollowResult.length > 2) {
+		return { method: 'unfollow', blog: unfollowResult[ 2 ] };
 	}
-	const followResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( followResult && followResult.length > 1 ) {
-		return { method: 'follow', blog: followResult[ 1 ] };
+	const followResult = /follow (https?:\/\/)?(\S+)/i.exec( msgText );
+	if ( followResult && followResult.length > 2 ) {
+		return { method: 'follow', blog: followResult[ 2 ] };
 	}
 	return null;
 }
