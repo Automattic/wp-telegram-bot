@@ -42,12 +42,31 @@ function unfollowBlog( chatId, blogPath ) {
 
 function getChatsByBlogHost( blogPath ) {
 	const cleanPath = normalizeBlogPath( blogPath );
-	debug( 'retrieving chats by path ' + cleanPath );
+	debug( `retrieving chats by blogPath ${cleanPath}` );
 	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: cleanPath } ).toArray() );
 }
 
+function getFollowedBlogs( chatId ) {
+	debug( `retrieving chats by chatId ${chatId}` );
+	const criteria = { chatId: parseInt( chatId ) };
+	return dbP
+		.then(
+			db => db.collection( 'blogChats' ).find( criteria ).toArray()
+		);
+}
+
+function clearFollowedBlogs( chatId ) {
+	debug( `removing all documents for chatId ${chatId}` );
+	const criteria = { chatId: parseInt( chatId ) };
+	return dbP
+		.then( db => db.collection( 'blogChats' ).remove( criteria ) )
+		.then( response => response.result && response.result.n );
+}
+
 module.exports = {
+	clearFollowedBlogs,
 	followBlog,
-	unfollowBlog,
 	getChatsByBlogHost,
+	getFollowedBlogs,
+	unfollowBlog,
 };
