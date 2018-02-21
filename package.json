@@ -4,14 +4,13 @@
   "description": "A telegram bot for WordPress.com",
   "main": "index.js",
   "dependencies": {
-    "@xmpp/plugins": "^0.2.0",
     "debug": "^2.6.8",
     "dotenv": "^4.0.0",
     "feedparser": "^2.2.1",
     "mongodb": "^2.2.30",
     "node-telegram-bot-api": "^0.27.1",
     "request": "^2.81.0",
-    "xmpp.js": "^0.2.0"
+    "xmpp.js": "^0.3.0"
   },
   "devDependencies": {},
   "scripts": {
