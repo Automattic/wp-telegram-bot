@@ -1,6 +1,5 @@
 const url = require( 'url' );
 const TelegramBot = require( 'node-telegram-bot-api' );
-const FeedParser = require( 'feedparser' );
 const request = require( 'request' );
 const debug = require( 'debug' )( 'wp-telegram-bot' );
 const db = require( './database' );
