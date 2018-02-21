@@ -80,13 +80,14 @@ client.handle('authenticate', authenticate => authenticate( XMPP_USER, XMPP_PASS
 client.handle('bind', bind => bind( 'bot' ) )
 
 function sendMessage( to, text ) {
+	debug( `sending message to ${ to } : ${ text }` );
 	const message = xml('message', { to: to } , xml('body', null, text ) );
 	return client.send( message );
 }
 
 // see: https://en.support.wordpress.com/jabber/
-const subscribe = ( blogPath, id ) => sendMessage( botId, `sub ${id}.channel ${blogPath}/posts` );
-const unsubscribe = blogPath => sendMessage( botId, 'unsub ' + blogPath + '/posts' );
+const subscribe = ( subPath, id ) => sendMessage( botId, `sub ${ id }.channel ${ subPath }` );
+const unsubscribe = unsubPath => sendMessage( botId, 'unsub ' + unsubPath );
 
 const registerNewPostCallBack = callback => newPostCallBack = callback;
 const registerCommandResponseCallBack = callback => commandResponseCallback = callback;

@@ -14,15 +14,19 @@ const token = process.env.BOT_TOKEN;
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot( token, { polling: true } );
 
+let botUserName = null;
+bot.getMe().then( me => botUserName = me.username );
+
 function newPostForBlog( blogPath, postUrl ) {
-	db.getChatsByBlogHost( blogPath ).then( chats => {
+	const blogUrl = normalizeBlogUrl( blogPath )
+	db.getChatsByBlogHost( blogUrl ).then( chats => {
 		// If we don't have any telegram channels/groups for that blog
 		// anymore, remove subscription on xmpp as well:
 		if ( chats.length === 0 ) {
-			xmpp.unsubscribe( blogPath );
+			xmpp.unsubscribe( blogUrl );
 			return;
 		}
-		
+
 		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
 	} );
 }
@@ -34,47 +38,85 @@ function commandResponseReceived( id, blog, subscriptionMessage ) {
 		bot.sendMessage( id, `${blog} is not a WordPress.com site` );
 		return;
 	}
-	db.followBlog( id, blog, 'channel' )
+	const blogUrl = normalizeBlogUrl( blog );
+	db.followBlog( id, blogUrl, 'channel' )
 		.then(
-			() => bot.sendMessage( id, `Now following ${blog}` )
+			() => bot.sendMessage( id, `Now following ${blogUrl}` )
 		)
 		.catch(
-			error => handleError( error, id, blog )
+			error => handleError( error, id, blogUrl )
 		);
 }
 
 xmpp.registerCommandResponseCallBack( commandResponseReceived );
 
-function blogPath( blogUrl ) {
-	const urlParts = url.parse( blogUrl );
+function normalizeBlogUrl( blogUrl ) {
+	// Following other feeds than /posts is disabled
+	// as subscriptions are shared between chats at the moment
+	// Let's strip all accepted types of custom feeds from the url
+	// See accepted types here: https://en.support.wordpress.com/feeds/#your-feeds
+	blogUrl = blogUrl.replace( /https?:\/\/|\/comments|((\/category|\/author|\/tag)\/[^ \/]+)?\/feeds\/?/ig, '' );
+
+	const urlParts = url.parse( `http://${blogUrl}` );
 
 	if ( ! urlParts || ! urlParts.host ) {
 		throw new Error( 'Bad blog url' );
 	}
 
-	return urlParts.host + urlParts.path;
+	let host = urlParts.host, path = urlParts.path;
+
+	if ( host.indexOf( '.' ) === -1 ) {
+		host += '.wordpress.com';
+	}
+
+	if ( path === '/' ) {
+		path = '';
+	}
+
+	return host + path;
 }
 
-function extractCommand( msgText ) {
-	const unfollowResult = /unfollow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( unfollowResult && unfollowResult.length > 1) {
-		return { method: 'unfollow', blog: unfollowResult[ 1 ] };
-
+function extractUrl( text ) {
+	const result = /(https?:\/\/)?(\S+)/i.exec( text );
+	if ( result && result.length > 2 ) {
+		return result[2];
 	}
-	const followResult = /follow ((http|https):\/\/\S+)/gi.exec( msgText );
-	if ( followResult && followResult.length > 1 ) {
-		return { method: 'follow', blog: followResult[ 1 ] };
-	}
-	return null;
+	throw new Error( `${text} does not contain a valid site address` );
 }
 
-const usage = `Hi there!
+function parseCommand( text ) {
+	const parts = /^\/(\w+)(@\w+)?( (.*))?$/.exec( text );
+	let command, parameters;
+
+	if ( parts && parts.length === 5 ) {
+		command = parts[1];
+		parameters = ( parts[3] || '' ).trim().toLowerCase();
+	}
+
+	switch ( command ) {
+	case 'start':
+	case 'help':
+		return { method: 'usage' };
+	case 'follow':
+		return { method: 'follow', blog: extractUrl( parameters ) };
+	case 'unfollow':
+		return { method: 'unfollow', blog: extractUrl( parameters ) };
+	case 'following':
+		return { method: 'following' };
+	case 'reset':
+		return { method: 'reset' };
+	default:
+		return { method: 'unknown' };
+	}
+}
+
+const usage = ( suffix ) => `Hi there!
 
 Here's how you can use this bot:
 
 * Create a channel or group
 * Add this bot as an administrator
-* Type 'follow https://yourexcellentsite.com' into the channel or group
+* Execute the '/follow${suffix}' command and then the site url
 * Voilà!  Your channel or group will now receive a notification everytime a new post is created
 `;
 
@@ -96,28 +138,58 @@ function sendUnfollowAcknowledgement( id, blog, count ) {
 	}
 }
 
-function processCommand( id, command ) {
-	if ( command.method === 'follow' ) {
+function processCommand( id, command, username ) {
+	const suffix = username ? `@${username}` : '';
+	debug( 'processing command', id, command );
+	switch( command.method ) {
+	case 'usage':
+		bot.sendMessage( id, usage( suffix ) );
+		break;
+	case 'follow':
 		// we do not send a bot response yet:
 		// the response to xmpp sub command will trigger the response
 		return Promise.resolve()
-			.then( () => xmpp.subscribe( blogPath( command.blog ), id ) );
-	}
-	if ( command.method === 'unfollow' ) {
+			.then( () => xmpp.subscribe( normalizeBlogUrl( command.blog ), id ) );
+	case 'unfollow':
 		// we do not send an xmpp unsub command yet:
 		// other channels may have a subscription to this same blog.
 		return Promise.resolve()
-			.then( () => db.unfollowBlog( id, blogPath( command.blog ) ) )
+			.then( () => db.unfollowBlog( id, normalizeBlogUrl( command.blog ) ) )
 			.then( ( result ) => sendUnfollowAcknowledgement( id, command.blog, result ) );
+	case 'following':
+		return db.getFollowedBlogs( id )
+			.then(
+				blogs => {
+					if ( blogs.length == 0 ) {
+						bot.sendMessage( id, 'You are not following any sites' );
+					} else {
+						const blogsDescription = blogs.map( blog => blog.blogPath );
+						bot.sendMessage(
+							id,
+							`You are following:\n${blogsDescription.join("\n")}`
+						);
+					}
+				}
+			);
+	case 'reset':
+		return db.clearFollowedBlogs( id )
+			.then(
+				count => bot.sendMessage( id, `Removed ${ count } sites` )
+			);
+	default:
+		bot.sendMessage( id, "Sorry, I don't know what you mean." );
 	}
 	return Promise.resolve();
 }
 
 bot.on( 'message', msg => {
-	debug( 'received', msg );
+	debug( 'received message', msg );
 
 	if ( msg.chat.type === 'private' ) {
-		bot.sendMessage( msg.chat.id, usage );
+		const command = parseCommand( msg.text );
+		if ( command ) {
+			processCommand( msg.chat.id, command );
+		}
 		return;
 	}
 
@@ -125,7 +197,7 @@ bot.on( 'message', msg => {
 		return;
 	}
 
-	const command = extractCommand( msg.text );
+	const command = parseCommand( msg.text );
 
 	if ( ! command ) {
 		return;
@@ -137,28 +209,25 @@ bot.on( 'message', msg => {
 				return Promise.reject( new Error( 'You need to be an administrator of the channel to do that' ) );
 			}
 		} )
-		.then( () => processCommand( msg.chat.id, command ) )
-		.catch( error => handleError( error, msg.chat.id, url ) );
+		.then( () => processCommand( msg.chat.id, command, botUserName ) )
+		.catch( error => handleError( error, msg.chat.id, command.blog ) );
 } );
 
 bot.on( 'channel_post', ( msg ) => {
 	debug( 'received', msg );
+
 	// ignore messages from groups
 	if ( msg.chat.type !== 'channel' ) {
 		return;
 	}
 
-	const command = extractCommand( msg.text );
+	const command = parseCommand( msg.text );
 
-	if ( ! command ) {
-		return;
+	if ( command ) {
+		// only admins can post to channel
+		processCommand( msg.chat.id, command, botUserName )
+			.catch( error => handleError( error, msg.chat.id, command.blog ) );
 	}
-
-	debug( 'Following ' + url );
-
-	// only admins can post to channel
-	processCommand( msg.chat.id, command )
-		.catch( error => handleError( error, msg.chat.id, url ) );
 } );
 
 require( 'http' ).createServer( ( request, response ) => {

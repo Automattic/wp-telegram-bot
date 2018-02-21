@@ -7,12 +7,6 @@ require( 'dotenv' ).load();
 const DB_URL = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/wp-telegram-bot';
 const dbP = MongoClient.connect( DB_URL );
 
-function normalizeBlogPath( blogPath ) {
-	const cleanPath = blogPath.replace(/∕/g, '/');
-
-	return cleanPath.endsWith( '/' ) ? cleanPath : cleanPath + '/';
-}
-
 dbP.then( db => {
 	debug( 'Connected to ' + DB_URL );
 
@@ -24,7 +18,7 @@ function followBlog( chatId, blogPath, chatType ) {
 	const document = {
 		chatId: parseInt( chatId ),
 		chatType,
-		blogPath: normalizeBlogPath( blogPath ),
+		blogPath: blogPath,
 		createdDate: new Date()
 	};
 	return dbP
@@ -33,7 +27,7 @@ function followBlog( chatId, blogPath, chatType ) {
 
 function unfollowBlog( chatId, blogPath ) {
 	debug( `removing documents for chat ${chatId} and blogPath ${blogPath}` );
-	const criteria = { chatId: parseInt( chatId ), blogPath: normalizeBlogPath( blogPath ) };
+	const criteria = { chatId: parseInt( chatId ), blogPath: blogPath };
 	const limit = { justOne: true };
 	return dbP
 		.then( db => db.collection( 'blogChats' ).remove( criteria, limit ) )
@@ -41,13 +35,31 @@ function unfollowBlog( chatId, blogPath ) {
 }
 
 function getChatsByBlogHost( blogPath ) {
-	const cleanPath = normalizeBlogPath( blogPath );
-	debug( 'retrieving chats by path ' + cleanPath );
-	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: cleanPath } ).toArray() );
+	debug( `retrieving chats by blogPath ${blogPath}` );
+	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: blogPath } ).toArray() );
+}
+
+function getFollowedBlogs( chatId ) {
+	debug( `retrieving chats by chatId ${chatId}` );
+	const criteria = { chatId: parseInt( chatId ) };
+	return dbP
+		.then(
+			db => db.collection( 'blogChats' ).find( criteria ).toArray()
+		);
+}
+
+function clearFollowedBlogs( chatId ) {
+	debug( `removing all documents for chatId ${chatId}` );
+	const criteria = { chatId: parseInt( chatId ) };
+	return dbP
+		.then( db => db.collection( 'blogChats' ).remove( criteria ) )
+		.then( response => response.result && response.result.n );
 }
 
 module.exports = {
+	clearFollowedBlogs,
 	followBlog,
-	unfollowBlog,
 	getChatsByBlogHost,
+	getFollowedBlogs,
+	unfollowBlog,
 };
