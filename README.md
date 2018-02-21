@@ -26,6 +26,25 @@ Users will add this bot as an admin to their channel/group and then follow WordP
 
 This also needs no special initial permissions - users will need to add this bot to their channel/group to allow it to post.
 
+## configure bot commands
+
+You configure bot commands by sending a message to BotFather:
+
+```
+/setcommands
+```
+
+BotFather will respond with 'Choose a bot to change the list of commands.' so choose your bot
+
+BotFather will respond with 'OK. Send me a list of commands for your bot ...' so respond with the following message:
+
+```
+follow - Follow a new site
+unfollow - Stop following a site
+following - List currently followed sites
+reset - Stop following all sites
+```
+
 ## local configuration
 
 Create a local `.env` file in the root of this project:
