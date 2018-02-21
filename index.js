@@ -201,7 +201,7 @@ bot.on( 'channel_post', ( msg ) => {
 		return;
 	}
 
-	const command = extractCommand( msg.text, botUserName );
+	const command = parseCommand( msg.text, botUserName );
 
 	if ( command ) {
 		// only admins can post to channel
