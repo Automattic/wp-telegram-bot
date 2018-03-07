@@ -32,7 +32,8 @@ function handleBotReply( messages ) {
 	debug( 'bot reply: ', messages );
 	const channelMatch = /(\S+).channel: blog not found/.exec( messages[0] );
 	const channelId = channelMatch && channelMatch.length > 0 ? channelMatch[1] : null;
-    const subscriptionMessageParts = messages[1] && messages[1].split( ':' );
+	const subscriptionMessageParts = messages[1] && messages[1].split( ':' );
+
 	let blog = null;
 	let subscriptionMessage = null;
 	if ( subscriptionMessageParts && subscriptionMessageParts.length > 1 ) {
@@ -47,8 +48,6 @@ function handleBotReply( messages ) {
 }
 
 client.on('stanza', stanza => {
-	debug( `received stanza: ${stanza.toString()}` );
-
 	if ( stanza.is( 'message' ) ) {
 		const body = stanza.getChild( 'body' );
 		const from = stanza.attrs.from;
@@ -56,7 +55,7 @@ client.on('stanza', stanza => {
 		if ( body ) {
 			const messageText = body.getText();
 
-			debug( `received message "${messageText}" from "${from}"` );
+			debug( `received message from "${from}" with text "${messageText}"` );
 
 			if ( from === botId ) {
 				handleBotReply( messageText.split( "\n" ) );
@@ -69,10 +68,13 @@ client.on('stanza', stanza => {
 				const blogPath = stanza.attrs.from;
 
 				if ( typeof newPostCallBack === 'function' ) {
+					debug( `Calling new post callback for ${postUrl} of ${blogPath}` );
 					newPostCallBack( blogPath, postUrl );
 				}
 			}
 		}
+	} else {
+		debug( `received stanza: ${stanza.toString()}` );
 	}
 } );
 
