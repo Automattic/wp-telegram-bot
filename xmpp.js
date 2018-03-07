@@ -68,6 +68,7 @@ client.on('stanza', stanza => {
 				const blogPath = stanza.attrs.from;
 
 				if ( typeof newPostCallBack === 'function' ) {
+					debug( `Calling new post callback for ${postUrl} of ${blogPath}` );
 					newPostCallBack( blogPath, postUrl );
 				}
 			}
