@@ -26,7 +26,20 @@ function newPostForBlog( blogPath, postUrl ) {
 			return;
 		}
 
-		chats.forEach( chat => bot.sendMessage( chat.chatId, postUrl ) );
+		chats.forEach(
+			chat => {
+				bot
+					.sendMessage( chat.chatId, postUrl )
+					.catch(
+						error => {
+							if ( error.response && error.response.body && error.response.body.error_code === 403 ) {
+								// we are no longer allowed to write to the telegram chat so clear all associations
+								db.clearFollowedBlogs( chat.chatId );
+							}
+						}
+					);
+			}
+		);
 	} );
 }
 
