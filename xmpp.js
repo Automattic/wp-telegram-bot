@@ -66,9 +66,13 @@ client.on('stanza', stanza => {
 			const postUrlMatch = messageText.match(/(https?:\/\/.*$)/gi);
 			if ( postUrlMatch ) {
 				const postUrl = postUrlMatch[0];
-				const blogPath = stanza.attrs.from;
+				let blogPath = stanza.attrs.from.replace( /∕/g, '/' );
 
-				if ( typeof newPostCallBack === 'function' ) {
+				if ( blogPath.endsWith( '/' ) ) {
+					blogPath = blogPath.slice(0, -1);
+				}
+
+				if ( ! postUrl.includes( '#comment' ) && typeof newPostCallBack === 'function' ) {
 					newPostCallBack( blogPath, postUrl );
 				}
 			}
@@ -86,7 +90,7 @@ function sendMessage( to, text ) {
 }
 
 // see: https://en.support.wordpress.com/jabber/
-const subscribe = ( subPath, id ) => sendMessage( botId, `sub ${ id }.channel ${ subPath }` );
+const subscribe = ( subPath, id ) => sendMessage( botId, `sub ${ id }.channel ${ subPath }/posts` );
 const unsubscribe = unsubPath => sendMessage( botId, 'unsub ' + unsubPath );
 
 const registerNewPostCallBack = callback => newPostCallBack = callback;
