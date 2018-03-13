@@ -16,8 +16,23 @@ const bot = new TelegramBot( token, { polling: true } );
 let botUserName = null;
 bot.getMe().then( me => botUserName = me.username );
 
+function sendMessage( chatId, message ) {
+	debug( 'Sending message', message, 'to chat', chatId );
+	bot
+		.sendMessage( chatId, message )
+		.catch(
+			error => {
+				debug( 'Error while sending message', error.toString() );
+				if ( error.response && error.response.body && error.response.body.error_code === 403 ) {
+					// we are no longer allowed to write to the telegram chat so clear all associations
+					db.clearFollowedBlogs( chatId );
+				}
+			}
+		);
+}
+
 function newPostForBlog( blogPath, postUrl ) {
-	const blogUrl = normalizeBlogUrl( blogPath )
+	const blogUrl = normalizeBlogUrl( blogPath );
 	db.getChatsByBlogHost( blogUrl ).then( chats => {
 		// If we don't have any telegram channels/groups for that blog
 		// anymore, remove subscription on xmpp as well:
@@ -27,18 +42,7 @@ function newPostForBlog( blogPath, postUrl ) {
 		}
 
 		chats.forEach(
-			chat => {
-				bot
-					.sendMessage( chat.chatId, postUrl )
-					.catch(
-						error => {
-							if ( error.response && error.response.body && error.response.body.error_code === 403 ) {
-								// we are no longer allowed to write to the telegram chat so clear all associations
-								db.clearFollowedBlogs( chat.chatId );
-							}
-						}
-					);
-			}
+			chat => sendMessage( chat.chatId, postUrl )
 		);
 	} );
 }
@@ -47,13 +51,13 @@ xmpp.registerNewPostCallBack( newPostForBlog );
 
 function commandResponseReceived( id, blog, subscriptionMessage ) {
 	if ( subscriptionMessage === 'blog not found' ) {
-		bot.sendMessage( id, `${blog} is not a WordPress.com site` );
+		sendMessage( id, `${blog} is not a WordPress.com site` )
 		return;
 	}
 	const blogUrl = normalizeBlogUrl( blog );
 	db.followBlog( id, blogUrl, 'channel' )
 		.then(
-			() => bot.sendMessage( id, `Now following ${blogUrl}` )
+			() => sendMessage( id, `Now following ${blogUrl}` )
 		)
 		.catch(
 			error => handleError( error, id, blogUrl )
@@ -136,17 +140,17 @@ function handleError( error, id, url ) {
 	debug( error.message );
 
 	if ( error.name === 'MongoError' && error.code === 11000 ) {
-		return bot.sendMessage( id, `You seem to already be following ${url}` );
+		return sendMessage( id, `You seem to already be following ${url}` );
 	}
 
-	return bot.sendMessage( id, error.message );
+	return sendMessage( id, error.message );
 }
 
 function sendUnfollowAcknowledgement( id, blog, count ) {
 	if ( count === 0) {
-		bot.sendMessage( id, `It seems you were not following ${blog}` );
+		sendMessage( id, `It seems you were not following ${blog}` );
 	} else {
-		bot.sendMessage( id, `No longer following ${blog}` );
+		sendMessage( id, `No longer following ${blog}` );
 	}
 }
 
@@ -155,7 +159,7 @@ function processCommand( id, command, username ) {
 	debug( 'processing command', id, command );
 	switch( command.method ) {
 	case 'usage':
-		bot.sendMessage( id, usage( suffix ) );
+		sendMessage( id, usage( suffix ) );
 		break;
 	case 'follow':
 		// we do not send a bot response yet:
@@ -173,10 +177,10 @@ function processCommand( id, command, username ) {
 			.then(
 				blogs => {
 					if ( blogs.length == 0 ) {
-						bot.sendMessage( id, 'You are not following any sites' );
+						sendMessage( id, 'You are not following any sites' );
 					} else {
 						const blogsDescription = blogs.map( blog => blog.blogPath );
-						bot.sendMessage(
+						sendMessage(
 							id,
 							`You are following:\n${blogsDescription.join("\n")}`
 						);
@@ -186,10 +190,10 @@ function processCommand( id, command, username ) {
 	case 'reset':
 		return db.clearFollowedBlogs( id )
 			.then(
-				count => bot.sendMessage( id, `Removed ${ count } sites` )
+				count => sendMessage( id, `Removed ${ count } sites` )
 			);
 	default:
-		bot.sendMessage( id, "Sorry, I don't know what you mean." );
+		sendMessage( id, "Sorry, I don't know what you mean." );
 	}
 	return Promise.resolve();
 }
@@ -206,6 +210,13 @@ bot.on( 'message', msg => {
 	}
 
 	if ( msg.chat.type !== 'group' ) {
+		return;
+	}
+
+	if ( ! msg.text ) {
+		if ( msg.left_chat_member && msg.left_chat_member.is_bot && msg.left_chat_member.username === botUserName ) {
+			processCommand( msg.chat.id, { method: 'reset' }, botUserName );
+		}
 		return;
 	}
 
