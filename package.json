@@ -7,9 +7,9 @@
     "debug": "^2.6.8",
     "dotenv": "^4.0.0",
     "mongodb": "^2.2.30",
-    "node-telegram-bot-api": "^0.27.1",
+    "node-telegram-bot-api": "^0.30.0",
     "request": "^2.81.0",
-    "xmpp.js": "^0.3.0"
+    "xmpp.js": "^0.9.1"
   },
   "devDependencies": {},
   "scripts": {

@@ -1,20 +1,21 @@
 const debug = require( 'debug' )( 'wp-telegram-bot:xmpp' );
-const xmpp = require( 'xmpp.js' );
-const Client = xmpp.Client;
+const xmpp = require( '@xmpp/client' );
+const Client = xmpp.client;
 const xml = xmpp.xml;
 
 require( 'dotenv' ).load();
 
 const XMPP_USER = process.env.XMPP_USER;
 const XMPP_PASS = process.env.XMPP_PASS;
-const client = new Client( { jid: XMPP_USER, password: XMPP_PASS, preferred: 'PLAIN' } );
+const client = Client( {
+	service: 'xmpp://xmpp.wordpress.com',
+	domain: 'im.wordpress.com',
+	username: XMPP_USER,
+	password: XMPP_PASS,
+	resource: 'bot',
+} );
 
 let newPostCallBack = null;
-
-client.plugin( require( '@xmpp/plugins/starttls' ) );
-client.plugin( require( '@xmpp/plugins/session-establishment' ) );
-
-client.start( { uri: 'xmpp://xmpp.wordpress.com', domain: 'im.wordpress.com' } );
 
 client.on( 'error', err => debug( err.toString() ) );
 client.on( 'status', ( status, value ) => debug( 'status changed to', status, value ? value.toString() : '') );
@@ -24,6 +25,8 @@ client.on('online', jid => {
 	debug( 'online as ' + jid.toString() );
 	client.send( xmpp.xml( 'presence', { 'xml:lang': 'en' } ) );
 } );
+
+client.start().catch( debug );
 
 const botId = 'bot@im.wordpress.com';
 let commandResponseCallback = null;
@@ -79,9 +82,6 @@ client.on('stanza', stanza => {
 		}
 	}
 } );
-
-client.handle('authenticate', authenticate => authenticate( XMPP_USER, XMPP_PASS ) )
-client.handle('bind', bind => bind( 'bot' ) )
 
 function sendMessage( to, text ) {
 	debug( `sending message to ${ to } : ${ text }` );
