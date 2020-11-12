@@ -47,7 +47,7 @@ function unfollowBlog( chatId, blogPath ) {
 
 function getChatsByBlogHost( blogPath ) {
 	debug( `retrieving chats by blogPath ${blogPath}` );
-	return dbP.then( db => db.collection( 'blogChats' ).find( { blogPath: blogPath } ).toArray() );
+	return dbP().then( db => db.collection( 'blogChats' ).find( { blogPath: blogPath } ).toArray() );
 }
 
 function getFollowedBlogs( chatId ) {
