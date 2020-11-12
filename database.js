@@ -17,7 +17,7 @@ const dbP = () => new Promise( ( resolve ) => {
 		.then( client => {
 			debug( 'Connected to ' + DB_URL );
 
-			db = client.db( 'heroku_zpjz44tv' );
+			db = client.db( process.env.MONDODB_DATABSE );
 			db.collection( 'blogChats' ).ensureIndex( { chatId: 1, blogPath: 1 }, { unique: true } );
 
 			return db;
