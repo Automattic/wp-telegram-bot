@@ -6,7 +6,7 @@
   "dependencies": {
     "debug": "^2.6.8",
     "dotenv": "^4.0.0",
-    "mongodb": "^2.2.30",
+    "mongodb": "^3.6.3",
     "node-telegram-bot-api": "^0.30.0",
     "request": "^2.81.0",
     "xmpp.js": "^0.9.1"

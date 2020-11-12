@@ -5,12 +5,23 @@ const debug = require( 'debug' )( 'wp-telegram-bot:database' );
 require( 'dotenv' ).load();
 
 const DB_URL = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/wp-telegram-bot';
-const dbP = MongoClient.connect( DB_URL );
 
-dbP.then( db => {
-	debug( 'Connected to ' + DB_URL );
+let db = null;
+const dbP = () => new Promise( ( resolve ) => {
+	if ( db !== null ) {
+		return resolve( db );
+	}
 
-	db.collection( 'blogChats' ).ensureIndex( { chatId: 1, blogPath: 1 }, { unique: true } );
+	return MongoClient
+		.connect( DB_URL )
+		.then( client => {
+			debug( 'Connected to ' + DB_URL );
+
+			db = client.db( 'heroku_zpjz44tv' );
+			db.collection( 'blogChats' ).ensureIndex( { chatId: 1, blogPath: 1 }, { unique: true } );
+
+			return db;
+		} );
 } );
 
 function followBlog( chatId, blogPath, chatType ) {
@@ -21,7 +32,7 @@ function followBlog( chatId, blogPath, chatType ) {
 		blogPath: blogPath,
 		createdDate: new Date()
 	};
-	return dbP
+	return dbP()
 		.then( db => db.collection( 'blogChats' ).insert( document ) );
 }
 
@@ -29,7 +40,7 @@ function unfollowBlog( chatId, blogPath ) {
 	debug( `removing documents for chat ${chatId} and blogPath ${blogPath}` );
 	const criteria = { chatId: parseInt( chatId ), blogPath: blogPath };
 	const limit = { justOne: true };
-	return dbP
+	return dbP()
 		.then( db => db.collection( 'blogChats' ).remove( criteria, limit ) )
 		.then( response => response.result && response.result.n );
 }
@@ -42,7 +53,7 @@ function getChatsByBlogHost( blogPath ) {
 function getFollowedBlogs( chatId ) {
 	debug( `retrieving chats by chatId ${chatId}` );
 	const criteria = { chatId: parseInt( chatId ) };
-	return dbP
+	return dbP()
 		.then(
 			db => db.collection( 'blogChats' ).find( criteria ).toArray()
 		);
@@ -51,7 +62,7 @@ function getFollowedBlogs( chatId ) {
 function clearFollowedBlogs( chatId ) {
 	debug( `removing all documents for chatId ${chatId}` );
 	const criteria = { chatId: parseInt( chatId ) };
-	return dbP
+	return dbP()
 		.then( db => db.collection( 'blogChats' ).remove( criteria ) )
 		.then( response => response.result && response.result.n );
 }
